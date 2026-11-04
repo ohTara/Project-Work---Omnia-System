@@ -1,65 +1,30 @@
-# Project-Work---Omnia-System
-🚀 Laboratorio integrato Cloud Security &amp; DevSecOps: deployment automatizzato con Terraform e Ansible su Azure, simulazione di attacco su OWASP Juice Shop (Red Team) e difesa/monitoraggio con WAF ModSecurity e SIEM Wazuh (Blue Team).
-# 🛡️ Laboratorio Cloud Security & DevSecOps — Costruisci, Attacca e Difendi
+# 🛡️ Omnia System — Cloud Security & DevSecOps Infrastructure
 
-> 📄 **Documentazione per il Cliente:** [Consulta lo schema e l'architettura di dettaglio](docs/architettura.md)
+[![DevSecOps IaC & Security Pipeline](https://github.com/ohTara/Project-Work---Omnia-System/actions/workflows/devsecops.yml/badge.svg)](https://github.com/ohTara/Project-Work---Omnia-System/actions/workflows/devsecops.yml)
 
-Progetto didattico per la realizzazione di un ambiente completo di **Cloud Security & DevSecOps** su Microsoft Azure. 
-
-Il progetto copre l'intero ciclo operativo DevSecOps: dall'Infrastructure as Code (IaC) e la scansione di sicurezza prima del deploy, fino alle attività pratiche di **Red Team** (vulnerability assessment) e **Blue Team** (WAF + SIEM).
+Infrastruttura Cloud automatizzata distribuita su Microsoft Azure per l'ambiente di laboratorio "Costruisci, Attacca e Difendi una Web App". Il progetto gestisce l'infrastruttura tramite **Terraform**, la configurazione software tramite **Ansible**, la verifica SAST tramite **Checkov** ed integra una pipeline **CI/CD con GitHub Actions**.
 
 ---
 
-## 🏛️ Architettura dell'Infrastruttura
+## 📐 Architettura di Rete
 
-L'infrastruttura è distribuita su Microsoft Azure tramite **Terraform** ed è composta da una Virtual Network (VNet, Subnet, NAT Gateway, Internet Gateway) e 3 Macchine Virtuali Ubuntu:
-
-| VM | Ruolo | Software & Componenti |
-| :--- | :--- | :--- |
-| **`vm-target`** | Web Application vulnerabile | OWASP Juice Shop (Docker `bkimminich/juice-shop`) |
-| **`vm-waf`** | Reverse Proxy / Protezione | Nginx + ModSecurity + OWASP Core Rule Set (CRS) |
-| **`vm-siem`** | Log Management & Detection | Wazuh Server & Dashboard |
+* **Subnet Unica Workload:** `10.0.1.0/24` (VNet `10.0.0.0/16`)
+* **`vm-target` (`10.0.1.10`):** Target Web App — OWASP Juice Shop (`:3000`)
+* **`vm-waf` (`10.0.1.20`):** Reverse Proxy & Protection — Nginx + ModSecurity CRS (`:80`)
+* **`vm-siem` (`10.0.1.30`):** Centralized SIEM — Wazuh Stack Single-Node (`:55000` / Dashboard `:443`)
 
 ---
 
-## 🔄 Fasi del Progetto
+## 🚀 Guida al Deployment
 
-### 1️⃣ Fase 1 — Cloud & DevOps (Infrastructure as Code)
-- **Terraform:** Provisioning automatizzato e riproducibile delle risorse di rete e delle 3 VM su Azure.
-- **Checkov:** Scansione statica di sicurezza (SAST) sui file Terraform e Ansible per identificare misconfigurazioni prima dell'apply.
-- **Ansible:** Automazione della configurazione software e installazione di Docker, ModSecurity e Wazuh senza interventi manuali.
+### 1. Prerequisiti
+* Azure CLI autenticato (`az login`)
+* Terraform (>= 1.3)
+* Ansible & Checkov installati nel nodo di gestione
+* Chiave SSH pubblica in `~/.ssh/id_rsa.pub`
 
-### 2️⃣ Fase 2 — Offensive (Red Team)
-- **Vulnerability Assessment:** Ricognizione ed analisi degli endpoint di OWASP Juice Shop.
-- **Exploit:** Attacco condotto sul form di autenticazione (SQL Injection) con l'obiettivo di effettuare il login con privilegi amministrativi (`admin`).
-
-### 3️⃣ Fase 3 — Defense & Monitoring (Blue Team)
-- **WAF (ModSecurity):** Configurazione del reverse proxy per intercettare il traffico e bloccare i tentativi di exploit sul login.
-- **SIEM (Wazuh):** Inoltro centralizzato dei log di sistema, di Juice Shop e degli alert del WAF su Wazuh con creazione di regole di detection personalizzate e dashboard dedicate.
-
----
-
-## 🛠️ Tecnologie Utilizzate
-
-- **Cloud Provider:** Microsoft Azure
-- **Infrastructure as Code:** Terraform
-- **IaC Security Scanner:** Checkov
-- **Configuration Management:** Ansible
-- **Containerization:** Docker
-- **Target Web App:** OWASP Juice Shop
-- **Web Application Firewall:** ModSecurity + OWASP CRS
-- **SIEM / SOC:** Wazuh
-
----
-
-## 🚀 Come Eseguire il Progetto
-
-### Prerequisiti
-- Azure CLI configurato (`az login`)
-- Terraform (v1.3+)
-- Ansible
-- Checkov
-
-### Step 1: Scansione di Sicurezza IaC
+### 2. Provisioning Infrastruttura (Terraform)
 ```bash
-checkov -d ./terraform
+cd terraform
+terraform init
+terraform apply -auto-approve
