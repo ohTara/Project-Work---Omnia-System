@@ -1,0 +1,13 @@
+---
+- name: Avvia il container Reverse Proxy ModSecurity
+  community.docker.docker_container:
+    name: modsecurity-waf
+    image: owasp/modsecurity-crs:nginx
+    state: started
+    restart_policy: always
+    env:
+      PARANOIA: "1"
+      BACKEND: "http://10.0.1.10:3000" # IP della VM target (Juice Shop)
+    published_ports:
+      - "80:80"
+      - "443:443"

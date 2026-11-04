@@ -1,0 +1,19 @@
+---
+- name: Aggiorna la cache dei pacchetti apt
+  apt:
+    update_cache: yes
+
+- name: Installa dipendenze di sistema e Docker
+  apt:
+    name:
+      - curl
+      - git
+      - docker.io
+      - docker-compose
+    state: present
+
+- name: Assicura che Docker sia avviato e abilitato
+  systemd:
+    name: docker
+    state: started
+    enabled: yes

@@ -1,0 +1,24 @@
+---
+- name: Preparazione di base su tutte le VM
+  hosts: all
+  become: true
+  roles:
+    - common
+
+- name: Configurazione VM Target (Juice Shop)
+  hosts: target
+  become: true
+  roles:
+    - target
+
+- name: Configurazione VM WAF (ModSecurity)
+  hosts: waf
+  become: true
+  roles:
+    - waf
+
+- name: Configurazione VM SIEM (Wazuh)
+  hosts: siem
+  become: true
+  roles:
+    - siem

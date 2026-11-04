@@ -1,0 +1,9 @@
+---
+- name: Avvia il container OWASP Juice Shop
+  community.docker.docker_container:
+    name: juice-shop
+    image: bkimminich/juice-shop
+    state: started
+    restart_policy: always
+    published_ports:
+      - "3000:3000"

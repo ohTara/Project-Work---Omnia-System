@@ -1,0 +1,20 @@
+ansible scan results:
+
+Passed checks: 4, Failed checks: 0, Skipped checks: 0
+
+Check: CKV_ANSIBLE_5: "Ensure that packages with untrusted or missing signatures are not used"
+	PASSED for resource: tasks.apt.Aggiorna la cache dei pacchetti apt
+	File: /roles\common\tasks\main.yml:2-7
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-5
+Check: CKV_ANSIBLE_5: "Ensure that packages with untrusted or missing signatures are not used"
+	PASSED for resource: tasks.apt.Installa dipendenze di sistema e Docker
+	File: /roles\common\tasks\main.yml:6-16
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-5
+Check: CKV_ANSIBLE_6: "Ensure that the force parameter is not used, as it disables signature validation and allows packages to be downgraded which can leave the system in a broken or inconsistent state"
+	PASSED for resource: tasks.apt.Aggiorna la cache dei pacchetti apt
+	File: /roles\common\tasks\main.yml:2-7
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-6
+Check: CKV_ANSIBLE_6: "Ensure that the force parameter is not used, as it disables signature validation and allows packages to be downgraded which can leave the system in a broken or inconsistent state"
+	PASSED for resource: tasks.apt.Installa dipendenze di sistema e Docker
+	File: /roles\common\tasks\main.yml:6-16
+	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-6

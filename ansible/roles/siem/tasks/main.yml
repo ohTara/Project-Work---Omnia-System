@@ -1,0 +1,12 @@
+---
+- name: Clonazione repository di installazione Wazuh Docker
+  git:
+    repo: 'https://github.com/wazuh/wazuh-docker.git'
+    dest: /opt/wazuh-docker
+    single_branch: yes
+    version: v4.7.2
+
+- name: Avvio stack Wazuh (Manager, Indexer, Dashboard)
+  command: docker-compose up -d
+  args:
+    chdir: /opt/wazuh-docker/single-node
