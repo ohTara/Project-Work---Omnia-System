@@ -1,3 +1,5 @@
+# Architettura del Sistema
+
 ## Architettura di Rete e Flusso dei Dati
 
 L'ambiente è distribuito all'interno di una singola sottoscrizione Microsoft Azure, isolato all'interno di una Virtual Network (VNet) dedicata che garantisce il confinamento del traffico. L'infrastruttura di rete è composta da una Subnet privata, protetta a livello di routing e in grado di comunicare con l'esterno tramite un NAT Gateway per il traffico in uscita e un Internet Gateway per l'accesso controllato in entrata. Il traffico web proveniente dagli utenti esterni non raggiunge mai direttamente l'applicativo vulnerabile: viene intercettato e filtrato preventivamente dal nodo WAF (Reverse Proxy), che inoltra le richieste legittime al target bloccando i tentativi di exploit e injection. Parallelamente, tutto il traffico di logging generato dalle componenti viene instradato dinamicamente al nodo SIEM centralizzato per la detection in tempo reale.
@@ -25,7 +27,7 @@ graph TD
     NAT -.-> Internet
 ```
 
-
+    
 ## Guida a Deploy e Configurazione
 
 L'infrastruttura è completamente definita come codice (IaC) e il suo rilascio è automatizzato. Di seguito i passaggi operativi per il deploy:
