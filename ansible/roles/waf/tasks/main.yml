@@ -1,13 +1,23 @@
 ---
-- name: Avvia il container Reverse Proxy ModSecurity
+- name: Crea directory per le configurazioni WAF
+  file:
+    path: /opt/modsecurity/conf
+    state: directory
+    mode: '0755'
+
+- name: Copia il file di configurazione Reverse Proxy Nginx + ModSecurity
+  copy:
+    src: default.conf
+    dest: /opt/modsecurity/conf/default.conf
+    mode: '0644'
+
+- name: Avvia il container WAF (ModSecurity + OWASP CRS)
   community.docker.docker_container:
     name: modsecurity-waf
     image: owasp/modsecurity-crs:nginx
     state: started
     restart_policy: always
-    env:
-      PARANOIA: "1"
-      BACKEND: "http://10.0.1.10:3000" # IP della VM target (Juice Shop)
+    volumes:
+      - /opt/modsecurity/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
     published_ports:
       - "80:80"
-      - "443:443"

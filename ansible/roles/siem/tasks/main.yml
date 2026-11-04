@@ -6,6 +6,12 @@
     single_branch: yes
     version: v4.7.2
 
+- name: Copia delle regole di detection custom per Wazuh
+  copy:
+    src: custom_rules.xml
+    dest: /opt/wazuh-docker/single-node/config/wazuh_cluster/custom_rules.xml
+    mode: '0644'
+
 - name: Avvio stack Wazuh (Manager, Indexer, Dashboard)
   command: docker-compose up -d
   args:

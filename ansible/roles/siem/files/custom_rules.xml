@@ -1,0 +1,18 @@
+<!-- ansible/roles/siem/files/custom_rules.xml -->
+<group name="modsecurity,waf,">
+  <!-- Regola per intercettare gli alert di ModSecurity -->
+  <rule id="100001" level="10">
+    <if_sid>31100</if_sid>
+    <field name="modsecurity.rule_message">SQL Injection</field>
+    <description>Wazuh Alert: Rilevato e bloccato tentativo di SQL Injection sul WAF</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+  </rule>
+
+  <!-- Regola per attacchi al Form di Login -->
+  <rule id="100002" level="8">
+    <url>/rest/user/login</url>
+    <description>Wazuh Alert: Tentativo di exploit intercettato sull'endpoint di login di Juice Shop</description>
+  </rule>
+</group>
