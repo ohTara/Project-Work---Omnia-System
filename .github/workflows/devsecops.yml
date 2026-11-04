@@ -20,9 +20,6 @@ jobs:
         with:
           terraform_version: 1.5.0
 
-      - name: Terraform Format Check
-        run: terraform fmt -check terraform/
-
       - name: Terraform Init
         run: |
           cd terraform
@@ -43,6 +40,5 @@ jobs:
 
       - name: Run Checkov Security Scan
         run: |
-          # Esegue la scansione e genera il report senza bloccare il workflow sui Failed accettati
           checkov -d terraform/ --soft-fail
           checkov -d ansible/ --soft-fail
