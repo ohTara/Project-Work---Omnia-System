@@ -2,6 +2,8 @@
 🚀 Laboratorio integrato Cloud Security &amp; DevSecOps: deployment automatizzato con Terraform e Ansible su Azure, simulazione di attacco su OWASP Juice Shop (Red Team) e difesa/monitoraggio con WAF ModSecurity e SIEM Wazuh (Blue Team).
 # 🛡️ Laboratorio Cloud Security & DevSecOps — Costruisci, Attacca e Difendi
 
+> 📄 **Documentazione per il Cliente:** [Consulta lo schema e l'architettura di dettaglio](docs/architettura.md)
+
 Progetto didattico per la realizzazione di un ambiente completo di **Cloud Security & DevSecOps** su Microsoft Azure. 
 
 Il progetto copre l'intero ciclo operativo DevSecOps: dall'Infrastructure as Code (IaC) e la scansione di sicurezza prima del deploy, fino alle attività pratiche di **Red Team** (vulnerability assessment) e **Blue Team** (WAF + SIEM).
