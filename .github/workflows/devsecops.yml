@@ -22,6 +22,8 @@ jobs:
 
       - name: Terraform Init & Validate
         run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N ""
           cd terraform
           terraform init -backend=false
           terraform validate
