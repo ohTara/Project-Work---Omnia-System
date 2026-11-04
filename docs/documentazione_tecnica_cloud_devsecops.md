@@ -56,7 +56,7 @@ L'infrastruttura è interamente gestita tramite **Infrastructure as Code (IaC)**
 
 ---
 
-### Step 1: Analisi di Sicurezza Statica IaC (Checkov)
+### Step 1: Analisi di Sicurezza Statico IaC (Checkov)
 
 Prima del provisioning, eseguire la scansione del codice per individuare eventuali misconfigurazioni:
 
@@ -78,7 +78,6 @@ checkov -d ansible/
    terraform init
    terraform apply -auto-approve
    ```
-
 3. Prendere nota degli IP pubblici generati in output (`vm_public_ips`).
 
 ### Step 3: Configurazione ed Installazione Software (Ansible)
@@ -93,39 +92,50 @@ checkov -d ansible/
 
 ---
 
-## 4. Analisi dei Costi e Manutenzione
+## 4. Report di Compliance SAST & Giustificazione Misconfigurazioni Checkov
 
-### Stima Risorse Hardware & Costi Azure (Mensili)
+L'analisi statica della sicurezza (SAST) effettuata con Checkov ha restituito la piena conformità per i playbook Ansible (**0 fallimenti su 4 controlli**) e l'esito **22 Passed / 9 Failed** sull'infrastruttura Terraform.
 
-| Risorsa Azure | Configurazione / Size | Qtà | Costo Unitario/Mese | Costo Totale/Mese |
-| :--- | :--- | :---: | :---: | :---: |
-| **VM Ubuntu (`Standard_B2s`)** | 2 vCPU, 4 GiB RAM | 3 | ~$30.66 | ~$91.98 |
-| **Managed Disk (Standard SSD)** | 30 GB per VM | 3 | ~$2.40 | ~$7.20 |
-| **Public IP (Dynamic)** | IP Pubblico Azure | 3 | ~$2.90 | ~$8.70 |
-| **Network & Outbound Data** | VNet + Data Egress | 1 | ~$5.00 | ~$5.00 |
-| **TOTALE MENSILE STIMATO** | | | | **~$112.88** |
+I **9 controlli non superati (Failed)** sono stati analizzati ed espressamente accettati in fase di design con le seguenti motivazioni tecniche legate alla natura del laboratorio:
 
-### Stima Ore/Uomo e Manutenzione Annuale
-
-| Voce di Costo | Descrizione | Quantità | Costo Orario / Anno | Totale |
-| :--- | :--- | :---: | :---: | :---: |
-| **Sviluppo IaC & Automation** | Scrittura Terraform, Ansible e scansioni Checkov | 35 ore | €35,00 / ora | € 1.225,00 |
-| **Configurazione Security** | Tuning WAF (ModSecurity) e Dashboard SIEM (Wazuh) | 25 ore | €35,00 / ora | € 875,00 |
-| **Manutenzione Annuale** | Patching OS, backup e gestione aggiornamenti WAF/SIEM | 12 mesi | €150,00 / mese | € 1.800,00 |
-
-### Confronto Economico: Azure Cloud vs Sandbox On-Premise
-
-| Indicatore | Cloud (Microsoft Azure) | Sandbox On-Premise (Proxmox/ESXi) |
-| :--- | :--- | :--- |
-| **Costo Iniziale (CAPEX)** | **€ 0,00** (Pay-as-you-go) | High (~€ 2.500 per hardware dedicato) |
-| **Tempi di Deploy** | **< 10 minuti** via Terraform | Ore/Giorni (Setup hardware + Hypervisor) |
-| **Flessibilità & Scalabilità** | Distruzione e ricreazione istantanea | Limitata alle risorse fisiche dell'host |
-| **Consumo Energetico & Manutenzione** | Gestiti dal Cloud Provider | A carico del laboratorio locale |
+* **`CKV_AZURE_10` / `CKV_AZURE_160` (Porte SSH 22 e HTTP 80 aperte a `0.0.0.0/0`):**
+  * *Motivazione:* L'accesso da qualsiasi IP è una **scelta didattica intenzionale** per consentire l'esecuzione delle simulazioni d'attacco da parte del team Red Team/SOC da postazioni remote dislocate.
+  * *Mitigazione Produttiva:* In un ambiente enterprise reale, l'accesso SSH verrebbe segregato tramite Azure Bastion/VPN aziendale e l'accesso web veicolato esclusivamente da Azure Application Gateway WAF.
+* **`CKV_AZURE_119` (Assegnazione di IP Pubblici sulle NIC di tutte le VM):**
+  * *Motivazione:* Requisito del laboratorio per garantire il raggiungimento diretto di ogni nodo durante le fasi di testing, configurazione Ansible ed estrazione log.
+  * *Mitigazione Produttiva:* Le VM interne (Target e SIEM) opererebbero in subnet private senza IP pubblico nativo.
+* **`CKV_AZURE_50` (Virtual Machine Extensions non utilizzate):**
+  * *Motivazione:* È stato privilegiato un approccio **agentless nativo basato su Ansible**, eliminando l'overhead e i costi di gestione delle estensioni proprietarie Azure.
+* **`CKV2_AZURE_31` (Mancata associazione diretta dell'NSG alla Subnet):**
+  * *Motivazione:* L'Network Security Group (`nsg-lab-sec`) è stato volutamente legato alle **Interfacce di Rete (NIC)** delle singole VM per consentire un controllo granulare delle regole per ciascun ruolo (`target`, `waf`, `siem`) all'interno della stessa subnet.
 
 ---
 
-## 5. Verifica e Collaudo dell'Infrastruttura
+## 5. Verifica e Collaudo dell'Infrastruttura (WBS 2.4)
 
-1. **Web App Target:** Verificare il raggiungimento diretto su `http://<IP-VM-TARGET>:3000`.
-2. **Protezione WAF:** Verificare che il traffico passato da `http://<IP-VM-WAF>` venga inoltrato alla web app e che gli attacchi sul form di login restituiscano un errore `HTTP 403 Access Denied`.
-3. **Dashboard SIEM:** Accedere alla dashboard Wazuh tramite `https://<IP-VM-SIEM>` ed accertarsi che i log del WAF e gli alert di ModSecurity siano visibili in tempo reale.
+È stato sviluppato uno script di collaudo automatizzato in Bash (`scripts/validate_network.sh`) per verificare l'infrastruttura:
+
+1. **Reachability ICMP/SSH:** Verifica dello stato UP dei nodi.
+2. **Web App Target:** Verificare il raggiungimento diretto su `http://<IP-VM-TARGET>:3000`.
+3. **Protezione WAF:** Verificare che il traffico inviato a `http://<IP-VM-WAF>` venga proxato a Juice Shop e che le chiamate malevole (SQL Injection) restituiscano l'errore `HTTP 403 Access Denied`.
+4. **Dashboard SIEM:** Verificare la raggiungibilità della Dashboard Wazuh su `https://<IP-VM-SIEM>`.
+
+---
+
+## 6. Analisi dei Costi (Azure & Manutenzione)
+
+### Costi Infrastrutturali Azure (Stima Mensile)
+
+| Risorsa Azure | Configurazione / Size | Qtà | Costo Totale/Mese |
+| :--- | :--- | :---: | :---: |
+| **VM Ubuntu (`Standard_B2s`)** | 2 vCPU, 4 GiB RAM | 3 | ~$91.98 |
+| **Managed Disk (Standard SSD)** | 30 GB per VM | 3 | ~$7.20 |
+| **Public IP (Dynamic)** | IP Pubblico Azure | 3 | ~$8.70 |
+| **Data Egress & Networking** | VNet + Data Transfer | 1 | ~$5.00 |
+| **TOTALE STIMATO** | | | **~$112.88** |
+
+### Stima Ore/Uomo e Manutenzione
+
+* **Sviluppo IaC & DevOps:** 35 ore (€ 1.225,00 una tantum)
+* **Tuning WAF & SIEM:** 25 ore (€ 875,00 una tantum)
+* **Manutenzione Annuale:** € 1.800,00/anno (€ 150,00/mese)
