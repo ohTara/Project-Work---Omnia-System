@@ -53,8 +53,12 @@ resource "azurerm_linux_virtual_machine" "vm" {
   ]
 
   admin_ssh_key {
-    username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub")
+    username = "azureuser"
+    # PRIMA:
+    # public_key = file("~/.ssh/id_rsa.pub")
+
+    # DOPO:
+    public_key = var.ssh_public_key
   }
 
   os_disk {
@@ -68,4 +72,9 @@ resource "azurerm_linux_virtual_machine" "vm" {
     sku       = "22_04-lts"
     version   = "latest"
   }
+}
+variable "ssh_public_key" {
+  type        = string
+  description = "Chiave pubblica SSH per le VM"
+  default     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3... dummy_key_for_ci_cd"
 }
