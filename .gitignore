@@ -5,6 +5,9 @@
 .terraform.lock.hcl
 *.tfvars
 
+# Chiavi private SSH (non committare)
+chiavi/
+
 # OS ignores
 .DS_Store
 Thumbs.db
