@@ -7,13 +7,14 @@ locals {
   }
 }
 
-# Public IP per l'accesso remoto
+# Public IP per l'accesso remoto (SKU Standard: lo SKU Basic non è più creabile su Azure)
 resource "azurerm_public_ip" "pip" {
   for_each            = local.vms
   name                = "pip-${each.key}"
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
+  sku                 = "Standard"
 }
 
 # Network Interfaces (NIC)
@@ -53,11 +54,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   ]
 
   admin_ssh_key {
-    username = "azureuser"
-    # PRIMA:
-    # public_key = file("~/.ssh/id_rsa.pub")
-
-    # DOPO:
+    username   = "azureuser"
     public_key = var.ssh_public_key
   }
 
@@ -72,9 +69,4 @@ resource "azurerm_linux_virtual_machine" "vm" {
     sku       = "22_04-lts"
     version   = "latest"
   }
-}
-variable "ssh_public_key" {
-  type        = string
-  description = "Chiave pubblica SSH per le VM"
-  default     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC3... dummy_key_for_ci_cd"
 }

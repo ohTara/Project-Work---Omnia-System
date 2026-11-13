@@ -2,7 +2,7 @@
 
 ## Architettura di Rete e Flusso dei Dati
 
-L'ambiente è distribuito all'interno di una singola sottoscrizione Microsoft Azure, isolato all'interno di una Virtual Network (VNet) dedicata che garantisce il confinamento del traffico. L'infrastruttura di rete è composta da una Subnet privata, protetta a livello di routing e in grado di comunicare con l'esterno tramite un NAT Gateway per il traffico in uscita e un Internet Gateway per l'accesso controllato in entrata. Il traffico web proveniente dagli utenti esterni non raggiunge mai direttamente l'applicativo vulnerabile: viene intercettato e filtrato preventivamente dal nodo WAF (Reverse Proxy), che inoltra le richieste legittime al target bloccando i tentativi di exploit e injection. Parallelamente, tutto il traffico di logging generato dalle componenti viene instradato dinamicamente al nodo SIEM centralizzato per la detection in tempo reale.
+L'ambiente è distribuito all'interno di una singola sottoscrizione Microsoft Azure, isolato all'interno di una Virtual Network (VNet) dedicata che garantisce il confinamento del traffico. L'infrastruttura di rete è composta da una Subnet (`10.0.1.0/24`) protetta da un Network Security Group. Ogni VM ha un IP pubblico: lo si usa per l'amministrazione, consentita solo dagli indirizzi del team, e per il traffico in uscita. Non ci sono NAT Gateway né Application Gateway. Il traffico web degli utenti esterni è ammesso solo verso il nodo WAF (Reverse Proxy), che inoltra le richieste legittime al target e blocca i tentativi di exploit e injection; la porta 3000 del target è raggiungibile direttamente solo dagli indirizzi del team, per il collaudo. I log delle componenti sono destinati al nodo SIEM centralizzato per la detection (l'inoltro tramite agente è ancora da completare, vedi README).
 
 ## Componenti IaaS e Ruoli delle Macchine Virtuali
 
@@ -16,18 +16,19 @@ L'infrastruttura di calcolo si poggia su tre Macchine Virtuali Ubuntu Server, di
 
 ```mermaid
 graph TD
-    Internet((Internet)) -->|Richieste HTTP/S| IGW[Internet Gateway]
-    IGW --> WAF[VM Ubuntu: ModSecurity WAF + OWASP CRS]
-    WAF -->|Traffico Filtrato| JS[VM Ubuntu: Juice Shop su Docker]
-    JS -->|Inoltro Log| SIEM[VM Ubuntu: Wazuh SIEM]
-    WAF -->|Alert e Log| SIEM
-    JS -.->|Uscita| NAT[NAT Gateway]
-    WAF -.->|Uscita| NAT
-    SIEM -.->|Uscita| NAT
-    NAT -.-> Internet
+    Internet((Internet)) -->|HTTP:80| WAF[vm-waf 10.0.1.20<br/>Nginx + ModSecurity + OWASP CRS]
+    Team((Team)) -->|SSH:22| NSG{{NSG nsg-lab-sec}}
+    Team -->|:3000 collaudo| JS
+    Team -->|:443 dashboard| SIEM
+    NSG --> WAF
+    NSG --> JS
+    NSG --> SIEM
+    WAF -->|Traffico filtrato:3000| JS[vm-target 10.0.1.10<br/>Juice Shop su Docker]
+    JS -.->|Log - da completare| SIEM[vm-siem 10.0.1.30<br/>Wazuh]
+    WAF -.->|Alert e log - da completare| SIEM
 ```
 
-    
+
 ## Guida a Deploy e Configurazione
 
 L'infrastruttura è completamente definita come codice (IaC) e il suo rilascio è automatizzato. Di seguito i passaggi operativi per il deploy:
@@ -37,21 +38,28 @@ Assicurarsi di avere Azure CLI installato e configurato, quindi autenticarsi sul
 `az login`
 
 **2. Provisioning dell'Infrastruttura (Terraform)**
-Spostarsi nella directory dedicata a Terraform per inizializzare il backend e creare le risorse su Azure (Rete e le 3 VM Ubuntu)[cite: 2].
-`cd terraform`
-`terraform init`
-`terraform apply -auto-approve`
-Al termine dell'esecuzione, Terraform restituirà in output gli indirizzi IP pubblici assegnati alle macchine virtuali e le relative credenziali.
+Compilare `terraform/terraform.tfvars` partendo da `terraform.tfvars.example` (chiave pubblica SSH e IP del team), poi:
+
+```bash
+cd terraform
+terraform init
+terraform apply
+terraform output vm_public_ips
+```
 
 **3. Configurazione dei Servizi (Ansible)**
-Aggiornare il file di inventory inserendo gli indirizzi IP appena generati. Successivamente, eseguire il provisioning del software per configurare Juice Shop tramite Docker, ModSecurity (WAF) e Wazuh (SIEM)[cite: 1, 2].
-`cd ../ansible`
-`ansible-playbook -i inventory setup.yml`
+Inserire in `ansible/inventory.ini` gli IP pubblici appena ottenuti, poi:
+
+```bash
+cd../ansible
+ansible-galaxy collection install -r requirements.yml
+ansible-playbook -i inventory.ini site.yml
+```
 
 ## Documentazione di Sicurezza e Mitigazione
 
 L'infrastruttura è stata progettata applicando i principi del DevSecOps e della difesa in profondità (Defense in Depth) per mitigare le vulnerabilità intrinseche del target:
 
-* **Isolamento e Sicurezza di Rete:** Le risorse di calcolo sono confinate in una Virtual Network (VNet) con Subnet dedicata[cite: 1, 2]. L'accesso dall'esterno è rigidamente filtrato: l'Internet Gateway espone unicamente il nodo WAF, impedendo connessioni dirette al target Juice Shop[cite: 1, 2].
-* **Mitigazione Applicativa (WAF):** Il nodo ModSecurity opera come Reverse Proxy sfruttando l'OWASP Core Rule Set (CRS)[cite: 1, 2]. Il suo scopo è intercettare e scartare payload malevoli prima che raggiungano la web app, neutralizzando tentativi di SQL Injection sul form di login, anomalie di input e attacchi legati alla gestione dei token di sessione (BOLA)[cite: 2]. Questo livello rende l'exploit admin non sfruttabile dall'esterno[cite: 1, 2].
-* **Rilevamento e Risposta (SIEM):** Wazuh accentra la telemetria di sicurezza[cite: 1, 2]. Raccogliendo i log applicativi di Juice Shop, i log di sistema di Ubuntu Server e gli alert generati da ModSecurity, il SIEM garantisce tracciabilità totale degli eventi[cite: 1, 2]. Grazie alle dashboard e alle regole di detection, il team di difesa è in grado di identificare le risorse compromesse, rilevare eventuali file malevoli rilasciati durante gli attacchi e avviare procedure di bonifica mirate[cite: 2].
+* **Isolamento e Sicurezza di Rete:** Le risorse di calcolo sono confinate in una Virtual Network (VNet) con Subnet dedicata. L'accesso dall'esterno è filtrato dal Network Security Group: da Internet è raggiungibile solo la porta 80 del nodo WAF, mentre SSH, la porta 3000 del target e la dashboard Wazuh sono aperte solo agli indirizzi del team.
+* **Mitigazione Applicativa (WAF):** Il nodo ModSecurity opera come Reverse Proxy sfruttando l'OWASP Core Rule Set (CRS). Il suo scopo è intercettare e scartare payload malevoli prima che raggiungano la web app, neutralizzando tentativi di SQL Injection sul form di login, anomalie di input e attacchi legati alla gestione dei token di sessione (BOLA). Questo livello rende l'exploit admin non sfruttabile dall'esterno.
+* **Rilevamento e Risposta (SIEM):** Wazuh accentra la telemetria di sicurezza. Raccogliendo i log applicativi di Juice Shop, i log di sistema di Ubuntu Server e gli alert generati da ModSecurity, il SIEM garantisce tracciabilità totale degli eventi. Grazie alle dashboard e alle regole di detection, il team di difesa è in grado di identificare le risorse compromesse, rilevare eventuali file malevoli rilasciati durante gli attacchi e avviare procedure di bonifica mirate.

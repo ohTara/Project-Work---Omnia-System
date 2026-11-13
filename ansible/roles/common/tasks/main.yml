@@ -1,19 +1,22 @@
 ---
 - name: Aggiorna la cache dei pacchetti apt
-  apt:
-    update_cache: yes
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
 
 - name: Installa dipendenze di sistema e Docker
-  apt:
+  ansible.builtin.apt:
     name:
       - curl
       - git
       - docker.io
       - docker-compose
+      # SDK Python richiesto dai moduli community.docker sulle VM
+      - python3-docker
     state: present
 
 - name: Assicura che Docker sia avviato e abilitato
-  systemd:
+  ansible.builtin.systemd:
     name: docker
     state: started
-    enabled: yes
+    enabled: true

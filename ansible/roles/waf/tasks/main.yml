@@ -1,12 +1,12 @@
 ---
 - name: Crea directory per le configurazioni WAF
-  file:
+  ansible.builtin.file:
     path: /opt/modsecurity/conf
     state: directory
     mode: '0755'
 
 - name: Copia il file di configurazione Reverse Proxy Nginx + ModSecurity
-  copy:
+  ansible.builtin.copy:
     src: default.conf
     dest: /opt/modsecurity/conf/default.conf
     mode: '0644'

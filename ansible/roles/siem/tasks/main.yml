@@ -1,18 +1,33 @@
 ---
+- name: Imposta vm.max_map_count richiesto da Wazuh Indexer
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "262144"
+    state: present
+    reload: true
+
 - name: Clonazione repository di installazione Wazuh Docker
-  git:
+  ansible.builtin.git:
     repo: 'https://github.com/wazuh/wazuh-docker.git'
     dest: /opt/wazuh-docker
-    single_branch: yes
+    single_branch: true
     version: v4.7.2
 
 - name: Copia delle regole di detection custom per Wazuh
-  copy:
+  ansible.builtin.copy:
     src: custom_rules.xml
     dest: /opt/wazuh-docker/single-node/config/wazuh_cluster/custom_rules.xml
     mode: '0644'
 
-- name: Avvio stack Wazuh (Manager, Indexer, Dashboard)
-  command: docker-compose up -d
+- name: Genera i certificati dell'indexer (solo al primo avvio)
+  ansible.builtin.command: docker-compose -f generate-indexer-certs.yml run --rm generator
   args:
     chdir: /opt/wazuh-docker/single-node
+    creates: /opt/wazuh-docker/single-node/config/wazuh_indexer_ssl_certs
+
+- name: Avvio stack Wazuh (Manager, Indexer, Dashboard)
+  ansible.builtin.command: docker-compose up -d
+  args:
+    chdir: /opt/wazuh-docker/single-node
+  register: wazuh_up
+  changed_when: "'Creating' in wazuh_up.stderr or 'Starting' in wazuh_up.stderr"

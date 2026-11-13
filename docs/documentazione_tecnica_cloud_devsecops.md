@@ -38,7 +38,7 @@ L'infrastruttura è interamente gestita tramite **Infrastructure as Code (IaC)**
 | VM | Indirizzo IP Privato | Ruolo | Componenti Software Installate | 
 | ----- | ----- | ----- | ----- | 
 | **`vm-target`** | `10.0.1.10` | Web Application Target | Ubuntu 22.04 LTS, Docker Engine, OWASP Juice Shop (`bkimminich/juice-shop`) ascolto su porta `3000`. | 
-| **`vm-waf`** | `10.0.1.20` | Reverse Proxy & Defense | Ubuntu 22.04 LTS, Docker Engine, Nginx + ModSecurity + OWASP Core Rule Set (CRS) su porta `80`/`443`. | 
+| **`vm-waf`** | `10.0.1.20` | Reverse Proxy & Defense | Ubuntu 22.04 LTS, Docker Engine, Nginx + ModSecurity + OWASP Core Rule Set (CRS) su porta `80`. | 
 | **`vm-siem`** | `10.0.1.30` | Centralized Logging & SOC | Ubuntu 22.04 LTS, Docker Compose, Stack Wazuh Single-Node (Wazuh Manager, Indexer, Dashboard) su porta `55000`/`443`. | 
 
 ## 3. Guida Passo-Passo al Deploy e alla Configurazione
@@ -48,7 +48,7 @@ L'infrastruttura è interamente gestita tramite **Infrastructure as Code (IaC)**
 1. **Azure CLI** installato e autenticato con `az login`.
 2. **Terraform** (v1.3+) installato.
 3. **Ansible** e **Checkov** installati nell'ambiente di gestione.
-4. Chiave SSH pubblica presente in `~/.ssh/id_rsa.pub`.
+4. Una chiave SSH pubblica, da indicare in `terraform/terraform.tfvars` insieme agli IP del team (modello: `terraform.tfvars.example`).
 
 ### Step 1: Analisi di Sicurezza Statico IaC (Checkov)
 
@@ -68,7 +68,8 @@ checkov -d ansible/
 2. Inizializzare i provider e applicare la configurazione:
    ```bash
    terraform init
-   terraform apply -auto-approve
+   terraform plan
+   terraform apply
    ```
 3. Prendere nota degli IP pubblici generati in output (`vm_public_ips`).
 
@@ -78,34 +79,45 @@ checkov -d ansible/
 2. Eseguire i playbook per l'installazione automatizzata dei ruoli:
    ```bash
    cd ../ansible
+   ansible-galaxy collection install -r requirements.yml
    ansible-playbook -i inventory.ini site.yml
    ```
 
 ## 4. Report di Compliance SAST & Giustificazione Misconfigurazioni Checkov
 
-L'analisi statica della sicurezza (SAST) effettuata con Checkov ha restituito la piena conformità per i playbook Ansible (**0 fallimenti su 4 controlli**) e l'esito **22 Passed / 9 Failed** sull'infrastruttura Terraform.
+Ultima scansione: Checkov 3.4.5, 13/11/2026 (output completo in [`results_cli.txt`](results_cli.txt)).
 
-I **9 controlli non superati (Failed)** sono stati analizzati ed espressamente accettati in fase di design con le seguenti motivazioni tecniche legate alla natura del laboratorio:
+| Ambito | Passed | Failed |
+| ----- | ----- | ----- |
+| Terraform | 24 | 7 |
+| Ansible | 4 | 0 |
 
-* **`CKV_AZURE_10` / `CKV_AZURE_160` (Porte SSH 22 e HTTP 80 aperte a `0.0.0.0/0`):**
-  * *Motivazione:* L'accesso da qualsiasi IP è una **scelta didattica intenzionale** per consentire l'esecuzione delle simulazioni d'attacco da parte del team Red Team/SOC da postazioni remote dislocate.
-  * *Mitigazione Produttiva:* In un ambiente enterprise reale, l'accesso SSH verrebbe segregato tramite Azure Bastion/VPN aziendale e l'accesso web veicolato esclusivamente da Azure Application Gateway WAF.
-* **`CKV_AZURE_119` (Assegnazione di IP Pubblici sulle NIC di tutte le VM):**
-  * *Motivazione:* Requisito del laboratorio per garantire il raggiungimento diretto di ogni nodo durante le fasi di testing, configurazione Ansible ed estrazione log.
-  * *Mitigazione Produttiva:* Le VM interne (Target e SIEM) opererebbero in subnet private senza IP pubblico nativo.
-* **`CKV_AZURE_50` (Virtual Machine Extensions non utilizzate):**
-  * *Motivazione:* È stato privilegiato un approccio **agentless nativo basato su Ansible**, eliminando l'overhead e i costi di gestione delle estensioni proprietarie Azure.
-* **`CKV2_AZURE_31` (Mancata associazione diretta dell'NSG alla Subnet):**
-  * *Motivazione:* L'Network Security Group (`nsg-lab-sec`) è stato volutamente legato alle **Interfacce di Rete (NIC)** delle singole VM per consentire un controllo granulare delle regole per ciascun ruolo (`target`, `waf`, `siem`) all'interno della stessa subnet.
+I **7 controlli non superati** riguardano 3 regole, analizzate e accettate in fase di design:
+
+* **`CKV_AZURE_160` (HTTP 80 raggiungibile da Internet) — 1 risorsa:**
+  * *Motivazione:* la porta 80 è aperta **solo verso `vm-waf`**. È la superficie che il Red Team deve poter attaccare da postazioni remote: il traffico passa comunque da ModSecurity prima di arrivare al target.
+  * *Mitigazione produttiva:* accesso web veicolato da Azure Application Gateway WAF con HTTPS.
+* **`CKV_AZURE_119` (IP pubblico sulle NIC) — 3 risorse:**
+  * *Motivazione:* requisito del laboratorio per configurare ogni nodo con Ansible ed estrarre i log senza un bastion.
+  * *Mitigazione produttiva:* VM interne (Target e SIEM) in subnet private senza IP pubblico, accesso tramite Azure Bastion o VPN.
+* **`CKV_AZURE_50` (Virtual Machine Extensions) — 3 risorse:**
+  * *Motivazione:* approccio agentless basato su Ansible, senza estensioni Azure da gestire.
+
+**Controlli risolti rispetto alla prima versione:**
+
+* `CKV_AZURE_10` (SSH aperto a `0.0.0.0/0`): la porta 22 è ora consentita solo dai CIDR in `admin_source_address_prefixes`. Lo stesso vale per la porta 3000 del target e per le porte 443 e 55000 del SIEM.
+* `CKV2_AZURE_31` (NSG non associato alla subnet): aggiunta l'associazione esplicita subnet ↔ NSG, oltre a quella sulle NIC.
 
 ## 5. Verifica e Collaudo dell'Infrastruttura (WBS 2.4)
 
 È stato sviluppato uno script di collaudo automatizzato in Bash (`scripts/validate_network.sh`) per verificare l'infrastruttura:
 
-1. **Reachability ICMP/SSH:** Verifica dello stato UP dei nodi.
+1. **Reachability ICMP:** Verifica dello stato UP dei nodi (da dentro la VNet: l'NSG non ammette ICMP dall'esterno).
 2. **Web App Target:** Verificare il raggiungimento diretto su `http://<IP-VM-TARGET>:3000`.
 3. **Protezione WAF:** Verificare che il traffico inviato a `http://<IP-VM-WAF>` venga proxato a Juice Shop e che le chiamate malevole (SQL Injection) restituiscano l'errore `HTTP 403 Access Denied`.
-4. **Dashboard SIEM:** Verificare la raggiungibilità della Dashboard Wazuh su `https://<IP-VM-SIEM>`.
+4. **Dashboard SIEM:** Verificare a mano la raggiungibilità della Dashboard Wazuh su `https://<IP-VM-SIEM>` (lo script non la controlla).
+
+Esecuzione da una postazione del team: `TARGET_IP=<ip> WAF_IP=<ip> SIEM_IP=<ip> ./scripts/validate_network.sh`.
 
 ## 6. Analisi dei Costi (Azure & Manutenzione)
 
@@ -115,9 +127,11 @@ I **9 controlli non superati (Failed)** sono stati analizzati ed espressamente a
 | ----- | ----- | ----- | ----- | 
 | **VM Ubuntu (`Standard_B2s`)** | 2 vCPU, 4 GiB RAM | 3 | ~$91.98 | 
 | **Managed Disk (Standard SSD)** | 30 GB per VM | 3 | ~$7.20 | 
-| **Public IP (Dynamic)** | IP Pubblico Azure | 3 | ~$8.70 | 
+| **Public IP (Standard, statico)** | IP Pubblico Azure | 3 | ~$8.70 | 
 | **Data Egress & Networking** | VNet + Data Transfer | 1 | ~$5.00 | 
 | **TOTALE STIMATO** |  |  | **~$112.88** | 
+
+> Le cifre sono stime di progetto: gli IP pubblici sono passati allo SKU Standard (lo SKU Basic non è più creabile su Azure), quindi la voce relativa va ricontrollata con il [calcolatore prezzi Azure](https://azure.microsoft.com/pricing/calculator/).
 
 ### Stima Ore/Uomo e Manutenzione
 

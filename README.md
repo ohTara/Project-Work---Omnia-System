@@ -1,103 +1,128 @@
-# Project-Work---Omnia-System
-🚀 Laboratorio integrato Cloud Security &amp; DevSecOps: deployment automatizzato con Terraform e Ansible su Azure, simulazione di attacco su OWASP Juice Shop (Red Team) e difesa/monitoraggio con WAF ModSecurity e SIEM Wazuh (Blue Team).
-# 🛡️ Laboratorio Cloud Security & DevSecOps — Costruisci, Attacca e Difendi
+# 🛡️ Omnia System — Laboratorio Cloud Security & DevSecOps
 
-> 📄 **Documentazione per il Cliente:** [Consulta lo schema e l'architettura di dettaglio](docs/architettura.md)
+**Costruisci, Attacca e Difendi una Web App su Azure.** Project Work per AizoOn / ITS ICT Piemonte.
 
-Progetto didattico per la realizzazione di un ambiente completo di **Cloud Security & DevSecOps** su Microsoft Azure. 
+Deployment automatizzato con Terraform e Ansible, attacco a OWASP Juice Shop (Red Team), difesa e monitoraggio con WAF ModSecurity e SIEM Wazuh (Blue Team).
 
-Il progetto copre l'intero ciclo operativo DevSecOps: dall'Infrastructure as Code (IaC) e la scansione di sicurezza prima del deploy, fino alle attività pratiche di **Red Team** (vulnerability assessment) e **Blue Team** (WAF + SIEM).
+- 📐 [Architettura](docs/architettura.md)
+- 📄 [Documentazione tecnica](docs/documentazione_tecnica_cloud_devsecops.md) (deploy, sicurezza, costi)
+- 🔎 [Esito scansione Checkov](docs/results_cli.txt)
 
 ---
 
-## 🏛️ Architettura dell'Infrastruttura
+## 🏛️ Architettura
 
-L'infrastruttura è distribuita su Microsoft Azure tramite **Terraform** ed è composta da una Virtual Network (VNet, Subnet, NAT Gateway, Internet Gateway) e 3 Macchine Virtuali Ubuntu:
+Un Resource Group in `westeurope`, una VNet `10.0.0.0/16` con una subnet `10.0.1.0/24`, un Network Security Group e 3 VM Ubuntu 22.04 (`Standard_B2s`), ognuna con IP pubblico.
 
-| VM | Ruolo | Software & Componenti |
+| VM | IP privato | Ruolo | Software |
+| :--- | :--- | :--- | :--- |
+| **`vm-target`** | `10.0.1.10` | Web app vulnerabile | OWASP Juice Shop (Docker `bkimminich/juice-shop`, porta 3000) |
+| **`vm-waf`** | `10.0.1.20` | Reverse proxy / protezione | Nginx + ModSecurity + OWASP CRS (`owasp/modsecurity-crs:nginx`, porta 80) |
+| **`vm-siem`** | `10.0.1.30` | Log management e detection | Wazuh single-node (Manager, Indexer, Dashboard) |
+
+**Chi può raggiungere cosa (NSG):**
+
+| Porta | Destinazione | Origine |
 | :--- | :--- | :--- |
-| **`vm-target`** | Web Application vulnerabile | OWASP Juice Shop (Docker `bkimminich/juice-shop`) |
-| **`vm-waf`** | Reverse Proxy / Protezione | Nginx + ModSecurity + OWASP Core Rule Set (CRS) |
-| **`vm-siem`** | Log Management & Detection | Wazuh Server & Dashboard |
+| 22 (SSH) | tutte le VM | solo IP del team (`admin_source_address_prefixes`) |
+| 80 (HTTP) | `vm-waf` | Internet: è la superficie che il Red Team attacca |
+| 3000 | `vm-target` | solo IP del team (per il collaudo diretto) |
+| 443, 55000 | `vm-siem` | solo IP del team |
 
 ---
 
-## 🖥️ VM Deployate e Accesso SSH
+## 🔄 Fasi del progetto
 
-Le **3 VM Ubuntu** sono state create su Azure e sono accessibili via **SSH** con l'utente `azureuser` e autenticazione tramite chiave privata. Le chiavi sono salvate nella cartella [`chiavi/`](chiavi/):
-
-| VM | Ruolo | Chiave privata |
-| :--- | :--- | :--- |
-| **`vm-target`** | Web Application vulnerabile (OWASP Juice Shop) | [`chiavi/vmOffensive_key992.pem`](chiavi/vmOffensive_key992.pem) |
-| **`vm-waf`** | Reverse Proxy / WAF (Nginx + ModSecurity) | [`chiavi/vmModSecurity_key903.pem`](chiavi/vmModSecurity_key903.pem) |
-| **`vm-siem`** | Log Management & Detection (Wazuh) | [`chiavi/vm-Wazuh_key.pem`](chiavi/vm-Wazuh_key.pem) |
-
-### Comandi di accesso
-
-```bash
-# VM Target (OWASP Juice Shop)
-ssh -i chiavi/vmOffensive_key992.pem azureuser@<IP_PUBBLICO_VM_TARGET>
-
-# VM WAF (Nginx + ModSecurity)
-ssh -i chiavi/vmModSecurity_key903.pem azureuser@<IP_PUBBLICO_VM_WAF>
-
-# VM SIEM (Wazuh)
-ssh -i chiavi/vm-Wazuh_key.pem azureuser@<IP_PUBBLICO_VM_SIEM>
-```
-
-> Sostituire `<IP_PUBBLICO_VM_*>` con l'indirizzo IP pubblico della VM corrispondente, visibile nel portale Azure oppure ottenibile con:
-> ```bash
-> az vm list-ip-addresses -d -o table
-> ```
-
-Prima del primo utilizzo, impostare i permessi corretti sulle chiavi (SSH rifiuta chiavi troppo permissive):
-
-```bash
-chmod 600 chiavi/*.pem
-```
-
-> ⚠️ **Nota di sicurezza:** le chiavi private non devono essere condivise né pubblicate su repository pubblici.
+1. **Cloud & DevOps** — Terraform per rete e VM, Checkov per la scansione statica dell'IaC, Ansible per installare Docker, Juice Shop, ModSecurity e Wazuh.
+2. **Offensive (Red Team)** — ricognizione degli endpoint di Juice Shop e SQL Injection sul form di login per ottenere l'accesso `admin`.
+3. **Defense & Monitoring (Blue Team)** — il WAF blocca l'exploit; Wazuh raccoglie log e alert con regole di detection dedicate.
 
 ---
 
-## 🔄 Fasi del Progetto
-
-### 1️⃣ Fase 1 — Cloud & DevOps (Infrastructure as Code)
-- **Terraform:** Provisioning automatizzato e riproducibile delle risorse di rete e delle 3 VM su Azure.
-- **Checkov:** Scansione statica di sicurezza (SAST) sui file Terraform e Ansible per identificare misconfigurazioni prima dell'apply.
-- **Ansible:** Automazione della configurazione software e installazione di Docker, ModSecurity e Wazuh senza interventi manuali.
-
-### 2️⃣ Fase 2 — Offensive (Red Team)
-- **Vulnerability Assessment:** Ricognizione ed analisi degli endpoint di OWASP Juice Shop.
-- **Exploit:** Attacco condotto sul form di autenticazione (SQL Injection) con l'obiettivo di effettuare il login con privilegi amministrativi (`admin`).
-
-### 3️⃣ Fase 3 — Defense & Monitoring (Blue Team)
-- **WAF (ModSecurity):** Configurazione del reverse proxy per intercettare il traffico e bloccare i tentativi di exploit sul login.
-- **SIEM (Wazuh):** Inoltro centralizzato dei log di sistema, di Juice Shop e degli alert del WAF su Wazuh con creazione di regole di detection personalizzate e dashboard dedicate.
-
----
-
-## 🛠️ Tecnologie Utilizzate
-
-- **Cloud Provider:** Microsoft Azure
-- **Infrastructure as Code:** Terraform
-- **IaC Security Scanner:** Checkov
-- **Configuration Management:** Ansible
-- **Containerization:** Docker
-- **Target Web App:** OWASP Juice Shop
-- **Web Application Firewall:** ModSecurity + OWASP CRS
-- **SIEM / SOC:** Wazuh
-
----
-
-## 🚀 Come Eseguire il Progetto
+## 🚀 Come eseguire il progetto
 
 ### Prerequisiti
-- Azure CLI configurato (`az login`)
-- Terraform (v1.3+)
-- Ansible
-- Checkov
 
-### Step 1: Scansione di Sicurezza IaC
+- Azure CLI autenticata (`az login`)
+- Terraform ≥ 1.3, Ansible, Checkov
+- Una coppia di chiavi SSH
+
+### 1. Scansione di sicurezza dell'IaC
+
 ```bash
-checkov -d ./terraform
+checkov -d terraform/
+checkov -d ansible/
+```
+
+### 2. Provisioning (Terraform)
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # inserire chiave pubblica e proprio IP
+terraform init
+terraform plan
+terraform apply
+terraform output vm_public_ips
+```
+
+### 3. Configurazione (Ansible)
+
+Inserire in `ansible/inventory.ini` gli IP pubblici ottenuti al passo precedente, poi:
+
+```bash
+cd ../ansible
+ansible-galaxy collection install -r requirements.yml
+ansible-playbook -i inventory.ini site.yml
+```
+
+### 4. Collaudo
+
+```bash
+TARGET_IP=<ip-target> WAF_IP=<ip-waf> SIEM_IP=<ip-siem> ./scripts/validate_network.sh
+```
+
+Lo script verifica raggiungibilità, Juice Shop (HTTP 200), proxy del WAF (HTTP 200) e blocco di una SQL Injection (HTTP 403).
+
+### 5. Spegnere tutto
+
+```bash
+cd terraform && terraform destroy
+```
+
+---
+
+## 🖥️ Accesso SSH alle VM
+
+Utente `azureuser`, autenticazione con chiave privata.
+
+```bash
+ssh -i <chiave-privata> azureuser@<IP_PUBBLICO_VM>
+az vm list-ip-addresses -d -o table      # per ricavare gli IP pubblici
+chmod 600 <chiave-privata>               # SSH rifiuta chiavi con permessi troppo ampi
+```
+
+Le VM dell'ambiente di gruppo usano una chiave per macchina (`vmOffensive_key992.pem` per `vm-target`, `vmModSecurity_key903.pem` per `vm-waf`, `vm-Wazuh_key.pem` per `vm-siem`). Le chiavi vanno tenute nella cartella locale `chiavi/`, **esclusa da Git**: si distribuiscono tra i membri del team con un canale privato, mai nella repo.
+
+Un deploy da zero con Terraform installa invece su tutte le VM la chiave indicata in `ssh_public_key`.
+
+---
+
+## ⚙️ Pipeline CI
+
+`.github/workflows/devsecops.yml`, a ogni push e pull request su `main`: `terraform init -backend=false`, `terraform validate`, Checkov su `terraform/` e `ansible/` (in `--soft-fail`: segnala senza bloccare).
+
+---
+
+## 🚧 Limiti noti e lavoro da completare
+
+- **Inoltro dei log a Wazuh**: i ruoli Ansible non installano ancora l'agente Wazuh su `vm-waf` e `vm-target`. Finché manca, il SIEM non riceve i log di ModSecurity e Juice Shop.
+- **Regole custom**: `custom_rules.xml` viene copiato sulla VM ma non è ancora montato nel container del Wazuh Manager. La regola `100002` non ha una regola padre (`if_sid`) e va rivista.
+- **Risorse del SIEM**: Wazuh single-node su `Standard_B2s` (4 GiB) è al limite; in caso di instabilità passare a una taglia con 8 GiB.
+- **HTTPS**: il WAF espone solo la porta 80.
+- **Stato Terraform**: locale, non condiviso tra i membri del team.
+
+---
+
+## 🛠️ Tecnologie
+
+Microsoft Azure · Terraform · Checkov · Ansible · Docker · OWASP Juice Shop · ModSecurity + OWASP CRS · Wazuh · GitHub Actions

@@ -1,120 +1,34 @@
+# Checkov 3.4.5 — eseguito il 2026-11-13 sul branch fix/riallinea-doc-e-iac
+# Comandi: checkov -d terraform/ --compact ; checkov -d ansible/ --compact
+
 terraform scan results:
 
-Passed checks: 4, Failed checks: 3, Skipped checks: 0
+Passed checks: 24, Failed checks: 7, Skipped checks: 0
 
-Check: CKV_AZURE_183: "Ensure that VNET uses local DNS addresses"
-	PASSED for resource: azurerm_virtual_network.vnet
-	File: \terraform\main.tf:21-26
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/azr-networking-183
-Check: CKV_AZURE_182: "Ensure that VNET has at least 2 connected DNS Endpoints"
-	PASSED for resource: azurerm_virtual_network.vnet
-	File: \terraform\main.tf:21-26
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/azr-networking-182
-Check: CKV_AZURE_9: "Ensure that RDP access is restricted from the internet"
-	PASSED for resource: azurerm_network_security_group.nsg
-	File: \terraform\main.tf:36-64
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-2
-Check: CKV_AZURE_77: "Ensure that UDP Services are restricted from the Internet "
-	PASSED for resource: azurerm_network_security_group.nsg
-	File: \terraform\main.tf:36-64
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-that-udp-services-are-restricted-from-the-internet
 Check: CKV_AZURE_160: "Ensure that HTTP (port 80) access is restricted from the internet"
 	FAILED for resource: azurerm_network_security_group.nsg
-	File: \terraform\main.tf:36-64
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/ensure-azure-http-port-80-access-from-the-internet-is-restricted
-
-		36 | resource "azurerm_network_security_group" "nsg" {
-		37 |   name                = "nsg-lab-sec"
-		38 |   location            = azurerm_resource_group.rg.location
-		39 |   resource_group_name = azurerm_resource_group.rg.name
-		40 | 
-		41 |   security_rule {
-		42 |     name                       = "Allow-SSH"
-		43 |     priority                   = 100
-		44 |     direction                  = "Inbound"
-		45 |     access                     = "Allow"
-		46 |     protocol                   = "Tcp"
-		47 |     source_port_range          = "*"
-		48 |     destination_port_range     = "22"
-		49 |     source_address_prefix      = "*"
-		50 |     destination_address_prefix = "*"
-		51 |   }
-		52 | 
-		53 |   security_rule {
-		54 |     name                       = "Allow-HTTP-HTTPS"
-		55 |     priority                   = 110
-		56 |     direction                  = "Inbound"
-		57 |     access                     = "Allow"
-		58 |     protocol                   = "Tcp"
-		59 |     source_port_range          = "*"
-		60 |     destination_port_ranges    = ["80", "443", "3000", "55000"]
-		61 |     source_address_prefix      = "*"
-		62 |     destination_address_prefix = "*"
-		63 |   }
-		64 | }
-Check: CKV_AZURE_10: "Ensure that SSH access is restricted from the internet"
-	FAILED for resource: azurerm_network_security_group.nsg
-	File: \terraform\main.tf:36-64
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-networking-policies/bc-azr-networking-3
-
-		36 | resource "azurerm_network_security_group" "nsg" {
-		37 |   name                = "nsg-lab-sec"
-		38 |   location            = azurerm_resource_group.rg.location
-		39 |   resource_group_name = azurerm_resource_group.rg.name
-		40 | 
-		41 |   security_rule {
-		42 |     name                       = "Allow-SSH"
-		43 |     priority                   = 100
-		44 |     direction                  = "Inbound"
-		45 |     access                     = "Allow"
-		46 |     protocol                   = "Tcp"
-		47 |     source_port_range          = "*"
-		48 |     destination_port_range     = "22"
-		49 |     source_address_prefix      = "*"
-		50 |     destination_address_prefix = "*"
-		51 |   }
-		52 | 
-		53 |   security_rule {
-		54 |     name                       = "Allow-HTTP-HTTPS"
-		55 |     priority                   = 110
-		56 |     direction                  = "Inbound"
-		57 |     access                     = "Allow"
-		58 |     protocol                   = "Tcp"
-		59 |     source_port_range          = "*"
-		60 |     destination_port_ranges    = ["80", "443", "3000", "55000"]
-		61 |     source_address_prefix      = "*"
-		62 |     destination_address_prefix = "*"
-		63 |   }
-		64 | }
-Check: CKV2_AZURE_31: "Ensure VNET subnet is configured with a Network Security Group (NSG)"
-	FAILED for resource: azurerm_subnet.subnet
-	File: \terraform\main.tf:28-33
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/azure-policies/azure-general-policies/bc-azure-2-31
-
-		28 | resource "azurerm_subnet" "subnet" {
-		29 |   name                 = "snet-workload"
-		30 |   resource_group_name  = azurerm_resource_group.rg.name
-		31 |   virtual_network_name = azurerm_virtual_network.vnet.name
-		32 |   address_prefixes     = ["10.0.1.0/24"]
-		33 | }
+	File: /main.tf:39-91
+Check: CKV_AZURE_50: "Ensure Virtual Machine Extensions are not Installed"
+	FAILED for resource: azurerm_linux_virtual_machine.vm["vm-siem"]
+	File: /vms.tf:44-72
+Check: CKV_AZURE_50: "Ensure Virtual Machine Extensions are not Installed"
+	FAILED for resource: azurerm_linux_virtual_machine.vm["vm-target"]
+	File: /vms.tf:44-72
+Check: CKV_AZURE_50: "Ensure Virtual Machine Extensions are not Installed"
+	FAILED for resource: azurerm_linux_virtual_machine.vm["vm-waf"]
+	File: /vms.tf:44-72
+Check: CKV_AZURE_119: "Ensure that Network Interfaces don't use public IPs"
+	FAILED for resource: azurerm_network_interface.nic["vm-siem"]
+	File: /vms.tf:21-34
+Check: CKV_AZURE_119: "Ensure that Network Interfaces don't use public IPs"
+	FAILED for resource: azurerm_network_interface.nic["vm-target"]
+	File: /vms.tf:21-34
+Check: CKV_AZURE_119: "Ensure that Network Interfaces don't use public IPs"
+	FAILED for resource: azurerm_network_interface.nic["vm-waf"]
+	File: /vms.tf:21-34
 
 ansible scan results:
 
 Passed checks: 4, Failed checks: 0, Skipped checks: 0
 
-Check: CKV_ANSIBLE_5: "Ensure that packages with untrusted or missing signatures are not used"
-	PASSED for resource: tasks.apt.Aggiorna la cache dei pacchetti apt
-	File: /ansible\roles\common\tasks\main.yml:2-7
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-5
-Check: CKV_ANSIBLE_5: "Ensure that packages with untrusted or missing signatures are not used"
-	PASSED for resource: tasks.apt.Installa dipendenze di sistema e Docker
-	File: /ansible\roles\common\tasks\main.yml:6-16
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-5
-Check: CKV_ANSIBLE_6: "Ensure that the force parameter is not used, as it disables signature validation and allows packages to be downgraded which can leave the system in a broken or inconsistent state"
-	PASSED for resource: tasks.apt.Aggiorna la cache dei pacchetti apt
-	File: /ansible\roles\common\tasks\main.yml:2-7
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-6
-Check: CKV_ANSIBLE_6: "Ensure that the force parameter is not used, as it disables signature validation and allows packages to be downgraded which can leave the system in a broken or inconsistent state"
-	PASSED for resource: tasks.apt.Installa dipendenze di sistema e Docker
-	File: /ansible\roles\common\tasks\main.yml:6-16
-	Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/ansible-policies/ansible-compute-policies/ansible-6
+

@@ -3,12 +3,12 @@
 # OMNIA SYSTEM - WBS 2.4 Network & Infrastructure Validation Script
 # ==============================================================================
 
-# Modifica questi IP con gli IP reali delle tue VM Azure
-TARGET_IP="10.0.1.10"
-WAF_IP="10.0.1.20"
-SIEM_IP="10.0.1.30"
-SSH_USER="azureuser"
-SSH_KEY="~/.ssh/id_rsa"
+# IP delle VM: di default quelli privati (esecuzione da dentro la VNet).
+# Da fuori passare gli IP pubblici:
+#   TARGET_IP=x.x.x.x WAF_IP=y.y.y.y SIEM_IP=z.z.z.z ./scripts/validate_network.sh
+TARGET_IP="${TARGET_IP:-10.0.1.10}"
+WAF_IP="${WAF_IP:-10.0.1.20}"
+SIEM_IP="${SIEM_IP:-10.0.1.30}"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -48,7 +48,7 @@ fi
 
 # 4. Test WAF Block (SQL Injection Simulation)
 echo -e "\n[4/4] Testing WAF Security Rule (SQLi Block Test)..."
-BLOCK_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$WAF_IP/rest/user/login?email='OR 1=1--")
+BLOCK_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://$WAF_IP/rest/user/login?email=%27%20OR%201=1--")
 if [ "$BLOCK_STATUS" -eq 403 ]; then
     echo -e "  [+] WAF ModSecurity Rule active: ${GREEN}BLOCKED (HTTP 403 Access Denied)${NC}"
 else
