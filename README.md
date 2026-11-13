@@ -22,6 +22,44 @@ L'infrastruttura è distribuita su Microsoft Azure tramite **Terraform** ed è c
 
 ---
 
+## 🖥️ VM Deployate e Accesso SSH
+
+Le **3 VM Ubuntu** sono state create su Azure e sono accessibili via **SSH** con l'utente `azureuser` e autenticazione tramite chiave privata. Le chiavi sono salvate nella cartella [`chiavi/`](chiavi/):
+
+| VM | Ruolo | Chiave privata |
+| :--- | :--- | :--- |
+| **`vm-target`** | Web Application vulnerabile (OWASP Juice Shop) | [`chiavi/vmOffensive_key992.pem`](chiavi/vmOffensive_key992.pem) |
+| **`vm-waf`** | Reverse Proxy / WAF (Nginx + ModSecurity) | [`chiavi/vmModSecurity_key903.pem`](chiavi/vmModSecurity_key903.pem) |
+| **`vm-siem`** | Log Management & Detection (Wazuh) | [`chiavi/vm-Wazuh_key.pem`](chiavi/vm-Wazuh_key.pem) |
+
+### Comandi di accesso
+
+```bash
+# VM Target (OWASP Juice Shop)
+ssh -i chiavi/vmOffensive_key992.pem azureuser@<IP_PUBBLICO_VM_TARGET>
+
+# VM WAF (Nginx + ModSecurity)
+ssh -i chiavi/vmModSecurity_key903.pem azureuser@<IP_PUBBLICO_VM_WAF>
+
+# VM SIEM (Wazuh)
+ssh -i chiavi/vm-Wazuh_key.pem azureuser@<IP_PUBBLICO_VM_SIEM>
+```
+
+> Sostituire `<IP_PUBBLICO_VM_*>` con l'indirizzo IP pubblico della VM corrispondente, visibile nel portale Azure oppure ottenibile con:
+> ```bash
+> az vm list-ip-addresses -d -o table
+> ```
+
+Prima del primo utilizzo, impostare i permessi corretti sulle chiavi (SSH rifiuta chiavi troppo permissive):
+
+```bash
+chmod 600 chiavi/*.pem
+```
+
+> ⚠️ **Nota di sicurezza:** le chiavi private non devono essere condivise né pubblicate su repository pubblici.
+
+---
+
 ## 🔄 Fasi del Progetto
 
 ### 1️⃣ Fase 1 — Cloud & DevOps (Infrastructure as Code)
